@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebSocket Example</title>
+  </head>
+  <body>
+    <h1>WebSocket Example</h1>
+    <input type="text" id="username" placeholder="Username" />
+    <input type="password" id="password" placeholder="Password" />
+    <button id="loginButton">Login</button>
+    <button id="subscribeEvent1" disabled>Subscribe Event 1</button>
+    <button id="subscribeEvent2" disabled>Subscribe Event 2</button>
+    <pre id="messages"></pre>
+    <script>
+      let socket;
+      let token;
+
+      document.getElementById("loginButton").onclick = async () => {
+        const username = document.getElementById("username").value;
+        const password = document.getElementById("password").value;
+
+        const response = await fetch("http://127.0.0.1:8000/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ username, password }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          token = data.access_token;
+          socket = new WebSocket(`ws://localhost:8000/ws?token=${token}`);
+
+          socket.onmessage = (event) => {
+            document.getElementById("messages").textContent +=
+              event.data + "\n";
+          };
+
+          socket.onclose = () => {
+            console.log("Connection closed");
+          };
+
+          // Enable the subscribe buttons after login
+          document.getElementById("subscribeEvent1").disabled = false;
+          document.getElementById("subscribeEvent2").disabled = false;
+        } else {
+          const error = await response.json();
+          alert(error.detail);
+        }
+      };
+
+      document.getElementById("subscribeEvent1").onclick = () => {
+        if (socket) {
+          socket.send("subscribe_event1");
+        }
+      };
+
+      document.getElementById("subscribeEvent2").onclick = () => {
+        if (socket) {
+          socket.send("subscribe_event2");
+        }
+      };
+    </script>
+  </body>
+</html>

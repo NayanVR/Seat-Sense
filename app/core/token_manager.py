@@ -7,11 +7,9 @@ from pydantic import BaseModel
 from app.config import settings
 
 class UserTokenModel(BaseModel):
-    first_name: str
-    last_name: str
     email: str
 
-async def get_user(token: str):
+async def decode_access_token(token: str):
     try:
         payload = jwt.decode(token, settings.token_secret_key, algorithms=settings.token_algorithm)
         user_data = payload.get("sub")
@@ -26,12 +24,12 @@ async def get_user(token: str):
         logger.error(f"JWT decoding error: {e}")
         return None
 
-def create_access_token(data: UserTokenModel, expires_delta: timedelta = None):
+def create_access_token(data: UserTokenModel, expires_delta_minutes: timedelta = None):
     to_encode = {}
     to_encode.update({"sub": data.model_dump_json()})
     try:
-        if expires_delta:
-            expire = datetime.now(timezone.utc) + expires_delta
+        if expires_delta_minutes:
+            expire = datetime.now(timezone.utc) + timedelta(minutes=expires_delta_minutes)
         else:
             expire = datetime.now(timezone.utc) + timedelta(minutes=settings.token_expires_minutes)
         

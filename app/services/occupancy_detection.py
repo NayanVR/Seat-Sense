@@ -38,6 +38,8 @@ def compute_occupancy(filled_image_path: np.ndarray, empty_image_path: np.ndarra
             if np.mean(edges) > settings.edge_threshold \
             and compute_ssim(empty_gray, aligned_filled_gray, x, y, w, h) < settings.ssim_threshold:
                 occupancy[label] = True
+            else:
+                occupancy[label] = False
 
         return occupancy
     

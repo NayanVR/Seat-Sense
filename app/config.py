@@ -5,6 +5,7 @@ from pydantic_settings import BaseSettings
 load_dotenv()
 
 class Settings(BaseSettings):
+    password_reset_token_expires_minutes: int = 5
     token_expires_minutes: int = 10080  # 7 days
     token_algorithm: str = "HS256"
     token_secret_key: str = os.getenv('TOKEN_SECRET_KEY')

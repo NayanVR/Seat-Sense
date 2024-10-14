@@ -2,7 +2,14 @@ import os
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
 
-load_dotenv()
+current_directory = os.path.dirname(os.path.abspath(__file__))
+dotenv_path = os.path.join(current_directory, ".env")
+
+if load_dotenv(dotenv_path=dotenv_path):
+    print(".env file loaded successfully")
+else:
+    print("Failed to load .env file")
+
 
 class Settings(BaseSettings):
     password_reset_token_expires_minutes: int = 5

@@ -15,9 +15,9 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 async def compute_occupancy_periodically():
     global occupancy_data
     while True:
-        occupancy_data = compute_occupancy(os.path.join(BASE_DIR, "static/3.png"))
+        occupancy_data = compute_occupancy(os.path.join(BASE_DIR, f"static/{np.random.randint(1, 7)}.png"))
         await manager.broadcast(f"Occupancy: {occupancy_data}")
-        await asyncio.sleep(1)
+        await asyncio.sleep(3)
 
 def compute_occupancy(filled_image_path: np.ndarray, empty_image_path: np.ndarray = None) -> dict[str, bool]:
     try:
@@ -27,7 +27,7 @@ def compute_occupancy(filled_image_path: np.ndarray, empty_image_path: np.ndarra
             empty_gray = cv2.imread(empty_image_path, cv2.IMREAD_GRAYSCALE)
 
         filled_gray = cv2.imread(filled_image_path, cv2.IMREAD_GRAYSCALE)
-        aligned_filled_gray = orb_align_image(filled_gray, empty_gray)
+        aligned_filled_gray = orb_align_image(empty_gray, filled_gray)
 
         occupancy: dict[str, bool] = {}
 

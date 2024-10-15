@@ -16,7 +16,7 @@ async def compute_occupancy_periodically():
     global occupancy_data
     while True:
         occupancy_data = compute_occupancy(os.path.join(BASE_DIR, f"static/{np.random.randint(1, 7)}.png"))
-        await manager.broadcast(f"Occupancy: {occupancy_data}")
+        await manager.broadcast(str(occupancy_data))
         await asyncio.sleep(3)
 
 def compute_occupancy(filled_image_path: np.ndarray, empty_image_path: np.ndarray = None) -> dict[str, bool]:
@@ -37,9 +37,9 @@ def compute_occupancy(filled_image_path: np.ndarray, empty_image_path: np.ndarra
 
             if np.mean(edges) > settings.edge_threshold \
             and compute_ssim(empty_gray, aligned_filled_gray, x, y, w, h) < settings.ssim_threshold:
-                occupancy[label] = True
+                occupancy[label] = 1
             else:
-                occupancy[label] = False
+                occupancy[label] = 0
 
         return occupancy
     

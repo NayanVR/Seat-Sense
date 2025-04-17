@@ -1,11 +1,13 @@
+import asyncio
 import os
 from typing import Annotated
-from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect, Depends, WebSocketException, status
+
+from fastapi import (APIRouter, Depends, Query, WebSocket, WebSocketDisconnect,
+                     WebSocketException, status)
 from fastapi.logger import logger
+
 from app.core.connection_manager import manager
-from app.core.seat_labels import BASE_DIR
 from app.core.token_manager import decode_access_token
-import asyncio
 
 router = APIRouter()
 
@@ -21,7 +23,7 @@ async def websocket_endpoint(socket: WebSocket, token: Annotated[str, Depends(ge
 
     if user is None:
         raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
-    
+
     try:
         while True:
             data = await socket.receive_text()

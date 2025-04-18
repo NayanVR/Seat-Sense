@@ -1,24 +1,22 @@
 import json
 from datetime import datetime, timedelta, timezone
 
-from fastapi import Depends, Header, HTTPException
+from fastapi import Header, HTTPException
 from fastapi.logger import logger
 from jose import ExpiredSignatureError, jwt
 from pydantic import BaseModel
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.db import get_db
-from app.models import User
 
 
 class UserTokenModel(BaseModel):
+    user_id: str
     email: str
     role: str
     first_name: str
     last_name: str
-    user_id: str
+    face_verified: bool
 
 async def decode_access_token(token: str) -> UserTokenModel:
     try:

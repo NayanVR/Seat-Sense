@@ -1,7 +1,9 @@
 import uuid
 from enum import Enum
 
-from sqlalchemy import TIMESTAMP, Column, Date, Float, ForeignKey, String, Time
+from pgvector.sqlalchemy import Vector  # Import Vector for embedding storage
+from sqlalchemy import (TIMESTAMP, Boolean, Column, Date, Float, ForeignKey,
+                        String, Time)
 from sqlalchemy.dialects.postgresql import ENUM, UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -22,10 +24,12 @@ class User(Base):
     email = Column(String, unique=True, nullable=False)
     password = Column(String, nullable=False)
     role = Column(ENUM(Role.ADMIN.value, Role.STUDENT.value, name='role_enum'), nullable=False, default=Role.STUDENT)
+    face_verified = Column(Boolean, default=False, nullable=False)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(TIMESTAMP(timezone=True), onupdate=func.now(), server_default=func.now(), nullable=False)
 
     attendance_records = relationship("Attendance", back_populates="user")
+    face_embeddings = relationship("FaceEmbedding", back_populates="user")  # Add relationship to FaceEmbedding
 
 class Event(Base):
     __tablename__ = "events"
@@ -55,3 +59,12 @@ class Attendance(Base):
 
     user = relationship("User", back_populates="attendance_records")
     event = relationship("Event", back_populates="attendance_records")
+
+class FaceEmbedding(Base):
+    __tablename__ = "face_embeddings"
+
+    embedding_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.user_id'), nullable=False)
+    embedding = Column(Vector(128), nullable=False)
+
+    user = relationship("User", back_populates="face_embeddings")

@@ -1,13 +1,15 @@
 import asyncio
 import os
+
 import cv2
-from fastapi.logger import logger
 import numpy as np
+from fastapi.logger import logger
 
 from app.config import settings
-from app.core.image_processing import compute_ssim, edge_detection_roi, orb_align_image
-from app.core.seat_labels import bounding_boxes
 from app.core.connection_manager import manager
+from app.core.image_processing import (compute_ssim, edge_detection_roi,
+                                       orb_align_image)
+from app.core.seat_labels import bounding_boxes
 
 occupancy_data = {}
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -42,6 +44,6 @@ def compute_occupancy(filled_image_path: np.ndarray, empty_image_path: np.ndarra
                 occupancy[label] = 0
 
         return occupancy
-    
+
     except Exception as e:
         logger.error(f"Error during occupancy detection: {e}")

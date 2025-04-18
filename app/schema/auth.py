@@ -28,6 +28,7 @@ class ProfileResponse(BaseModel):
     last_name: str
     email: str
     role: str
+    face_verified: bool
 
 
 class LoginRequest(BaseModel):
@@ -50,3 +51,7 @@ class SignupResponse(BaseModel):
     access_token: str
     token_type: str
 
+
+class RegisterFaceResponse(BaseModel):
+    message: str
+    face_verified: bool

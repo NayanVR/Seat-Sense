@@ -11,9 +11,9 @@ from app.db import get_db
 from app.models import User
 from app.schema.auth import (ForgotPasswordRequest, ForgotPasswordResponse,
                              LoginRequest, LoginResponse, ProfileRequest,
-                             ProfileResponse, ResetPasswordRequest,
-                             ResetPasswordResponse, SignupRequest,
-                             SignupResponse)
+                             ProfileResponse, RegisterFaceResponse,
+                             ResetPasswordRequest, ResetPasswordResponse,
+                             SignupRequest, SignupResponse)
 
 router = APIRouter()
 
@@ -35,7 +35,8 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
                 role=user.role,
                 first_name=user.first_name,
                 last_name=user.last_name,
-                user_id=str(user.user_id)
+                user_id=str(user.user_id),
+                face_verified=user.face_verified
             )
         )
         return {"access_token": access_token, "token_type": "bearer"}
@@ -64,7 +65,8 @@ async def signup(req: SignupRequest, db: AsyncSession = Depends(get_db)):
             last_name=req.last_name,
             email=req.email,
             password=hashed_password.decode('utf-8'),
-            role=req.role  # Set the role from the signup request
+            role=req.role,
+            face_verified=False
         )
 
         db.add(new_user)
@@ -78,7 +80,8 @@ async def signup(req: SignupRequest, db: AsyncSession = Depends(get_db)):
                 role=new_user.role,
                 first_name=new_user.first_name,
                 last_name=new_user.last_name,
-                user_id=str(new_user.user_id)
+                user_id=str(new_user.user_id),
+                face_verified=new_user.face_verified
             )
         )
 
@@ -106,7 +109,8 @@ async def profile(db: AsyncSession = Depends(get_db), user: User = Depends(get_u
             "first_name": user.first_name,
             "last_name": user.last_name,
             "email": user.email,
-            "role": user.role
+            "role": user.role,
+            "face_verified": user.face_verified,
         }
 
     except HTTPException as http_exc:
@@ -162,4 +166,33 @@ async def reset_password(req: ResetPasswordRequest, db: AsyncSession = Depends(g
 
     except Exception as e:
         logger.error(f"Error during reset-password: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+from fastapi import File, UploadFile
+
+
+@router.post("/register-face", response_model=RegisterFaceResponse)
+async def verify_face(
+    user: UserTokenModel = Depends(get_user_from_header),
+    db: AsyncSession = Depends(get_db),
+    file: UploadFile = File(...)
+):
+    try:
+        image_data = await file.read()
+        # TODO: Implement face recognition logic here
+        # Update the user's face_verified field in the database
+        await db.execute(
+            update(User)
+            .where(User.user_id == user.user_id)
+            .values(face_verified=True)
+        )
+        await db.commit()
+
+        return {"message": "Face verified successfully", "face_verified": True}
+
+    except HTTPException as http_exc:
+        raise http_exc
+
+    except Exception as e:
+        logger.error(f"Error during face verification: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")

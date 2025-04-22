@@ -32,7 +32,18 @@ async def create_event(
         db.add(new_event)
         await db.commit()
         await db.refresh(new_event)
-        return new_event
+
+        return EventResponse(
+            event_id=str(new_event.event_id),
+            name=new_event.name,
+            description=new_event.description,
+            date=new_event.date,
+            location=new_event.location,
+            start_time=new_event.start_time,
+            end_time=new_event.end_time,
+            created_at=new_event.created_at.isoformat(),
+            updated_at=new_event.updated_at.isoformat(),
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -46,7 +57,17 @@ async def get_event(
         event = result.scalar_one_or_none()
         if not event:
             raise HTTPException(status_code=404, detail="Event not found")
-        return event
+        return EventResponse(
+            event_id=str(event.event_id),
+            name=event.name,
+            description=event.description,
+            date=event.date,
+            location=event.location,
+            start_time=event.start_time,
+            end_time=event.end_time,
+            created_at=event.created_at.isoformat(),
+            updated_at=event.updated_at.isoformat(),
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -57,7 +78,23 @@ async def list_events(
     try:
         result = await db.execute(select(Event))
         events = result.scalars().all()
-        return events
+        if not events:
+            raise HTTPException(status_code=404, detail="No events found")
+        return EventListResponse(
+            events=[
+                EventResponse(
+                    event_id=str(event.event_id),
+                    name=event.name,
+                    description=event.description,
+                    date=event.date,
+                    location=event.location,
+                    start_time=event.start_time,
+                    end_time=event.end_time,
+                    created_at=event.created_at.isoformat(),
+                    updated_at=event.updated_at.isoformat(),
+                ) for event in events
+            ]
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -85,7 +122,17 @@ async def update_event(
 
         await db.commit()
         await db.refresh(event)
-        return event
+        return EventResponse(
+            event_id=str(event.event_id),
+            name=event.name,
+            description=event.description,
+            date=event.date,
+            location=event.location,
+            start_time=event.start_time,
+            end_time=event.end_time,
+            created_at=event.created_at.isoformat(),
+            updated_at=event.updated_at.isoformat(),
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

@@ -219,6 +219,12 @@ wheels = [
 ]
 
 [[package]]
+name = "dlib"
+version = "19.24.8"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/14/4c/8444567b0b82b0c146fd746f96751ffc7feb25e5ed628c35b88b9673c2ff/dlib-19.24.8.tar.gz", hash = "sha256:9135900983e279b5e5d0b1bb31b684a3054ea4f3ea1b1c69e8a675659271003d", size = 3383101 }
+
+[[package]]
 name = "dnspython"
 version = "2.6.1"
 source = { registry = "https://pypi.org/simple" }
@@ -251,6 +257,27 @@ sdist = { url = "https://files.pythonhosted.org/packages/48/ce/13508a1ec3f8bb981
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d7/ee/bf0adb559ad3c786f12bcbc9296b3f5675f529199bef03e2df281fa1fadb/email_validator-2.2.0-py3-none-any.whl", hash = "sha256:561977c2d73ce3611850a06fa56b414621e0c8faa9d66f2611407d87465da631", size = 33521 },
 ]
+
+[[package]]
+name = "face-recognition"
+version = "1.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+    { name = "dlib" },
+    { name = "face-recognition-models" },
+    { name = "numpy" },
+    { name = "pillow" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/6c/49/75dda409b94841f01cbbc34114c9b67ec618265084e4d12d37ab838f4fd3/face_recognition-1.3.0.tar.gz", hash = "sha256:5e5efdd1686aa566af0d3cc1313b131e4b197657a8ffd03669e6d3fad92705ec", size = 3182249 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1e/95/f6c9330f54ab07bfa032bf3715c12455a381083125d8880c43cbe76bb3d0/face_recognition-1.3.0-py2.py3-none-any.whl", hash = "sha256:c543e91c8cfbf24d19db04e511ebbddcb23894bcee510133729ee78e9f4b5e83", size = 15508 },
+]
+
+[[package]]
+name = "face-recognition-models"
+version = "0.3.0"
+source = { git = "https://github.com/ageitgey/face_recognition_models#e67de717267507d1e9246de95692eb8be736ab61" }
 
 [[package]]
 name = "fastapi"
@@ -924,6 +951,8 @@ dependencies = [
     { name = "alembic" },
     { name = "asyncpg" },
     { name = "bcrypt" },
+    { name = "face-recognition" },
+    { name = "face-recognition-models" },
     { name = "fastapi", extra = ["standard"] },
     { name = "greenlet" },
     { name = "jwt" },
@@ -943,6 +972,8 @@ requires-dist = [
     { name = "alembic", specifier = ">=1.13.3" },
     { name = "asyncpg", specifier = ">=0.29.0" },
     { name = "bcrypt", specifier = ">=4.2.0" },
+    { name = "face-recognition", specifier = ">=1.3.0" },
+    { name = "face-recognition-models", git = "https://github.com/ageitgey/face_recognition_models" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.115.0" },
     { name = "greenlet", specifier = ">=3.1.1" },
     { name = "jwt", specifier = ">=1.3.1" },

@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     token_secret_key: str = os.getenv('TOKEN_SECRET_KEY')
     # database_url: str = os.getenv('DATABASE_URL')
     async_database_url: str = os.getenv('ASYNC_DATABASE_URL')
+    audi_latitude: float = 52.5200
+    audi_longitude: float = 13.4050
+    radius: float = 100
     ssim_threshold: float = 0.45
     edge_threshold: float = 15
 

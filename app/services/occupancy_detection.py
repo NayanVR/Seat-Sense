@@ -14,6 +14,10 @@ from app.core.seat_labels import bounding_boxes
 occupancy_data = {}
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+async def get_occupancy():
+    global occupancy_data
+    return occupancy_data
+
 async def compute_occupancy_periodically():
     global occupancy_data
     while True:

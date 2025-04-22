@@ -44,7 +44,7 @@ class Event(Base):
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(TIMESTAMP(timezone=True), onupdate=func.now(), server_default=func.now(), nullable=False)
 
-    attendance_records = relationship("Attendance", back_populates="event")
+    attendance_records = relationship("Attendance", back_populates="event", cascade="all, delete")
 
 class Attendance(Base):
     __tablename__ = "attendance"

@@ -1,4 +1,7 @@
+import io
+
 import bcrypt
+import face_recognition
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.logger import logger
 from sqlalchemy import select, update
@@ -8,7 +11,7 @@ from app.config import settings
 from app.core.token_manager import (UserTokenModel, create_access_token,
                                     decode_access_token, get_user_from_header)
 from app.db import get_db
-from app.models import User
+from app.models import FaceEmbedding, User
 from app.schema.auth import (ForgotPasswordRequest, ForgotPasswordResponse,
                              LoginRequest, LoginResponse, ProfileRequest,
                              ProfileResponse, RegisterFaceResponse,
@@ -20,7 +23,7 @@ router = APIRouter()
 @router.post("/login", response_model=LoginResponse)
 async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
     try:
-        result = await db.execute(select(User).filter(User.email == req.email))
+        result = await db.execute(select(User).filter(User.email == req.email.lower()))
         user = result.scalar_one_or_none()
 
         if not user:
@@ -31,7 +34,7 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
 
         access_token = create_access_token(
             data=UserTokenModel(
-                email=user.email,
+                email=user.email.lower(),
                 role=user.role,
                 first_name=user.first_name,
                 last_name=user.last_name,
@@ -63,7 +66,7 @@ async def signup(req: SignupRequest, db: AsyncSession = Depends(get_db)):
         new_user = User(
             first_name=req.first_name,
             last_name=req.last_name,
-            email=req.email,
+            email=req.email.lower(),
             password=hashed_password.decode('utf-8'),
             role=req.role,
             face_verified=False
@@ -94,7 +97,7 @@ async def signup(req: SignupRequest, db: AsyncSession = Depends(get_db)):
         logger.error(f"Error during signup: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
-@router.get("/profile", response_model=ProfileResponse)
+@router.post("/profile", response_model=ProfileResponse)
 async def profile(db: AsyncSession = Depends(get_db), user: User = Depends(get_user_from_header)):
     try:
         fetched_user = await db.execute(select(User).filter(User.email == user.email))
@@ -172,15 +175,32 @@ from fastapi import File, UploadFile
 
 
 @router.post("/register-face", response_model=RegisterFaceResponse)
-async def verify_face(
+async def register_face(
     user: UserTokenModel = Depends(get_user_from_header),
     db: AsyncSession = Depends(get_db),
-    file: UploadFile = File(...)
+    image: UploadFile = File(...)
 ):
     try:
-        image_data = await file.read()
-        # TODO: Implement face recognition logic here
-        # Update the user's face_verified field in the database
+        image_file = await image.read()
+        if not image_file:
+            raise HTTPException(status_code=400, detail="Failed to read image file")
+
+        image_data = io.BytesIO(image_file)
+
+        image = face_recognition.load_image_file(image_data)
+        face_encodings = face_recognition.face_encodings(image)
+
+        if not face_encodings:
+            raise HTTPException(status_code=400, detail="No face detected")
+
+        embedding = face_encodings[0]
+
+        new_embedding = FaceEmbedding(
+            user_id=user.user_id,
+            embedding=embedding
+        )
+        db.add(new_embedding)
+
         await db.execute(
             update(User)
             .where(User.user_id == user.user_id)
@@ -188,11 +208,12 @@ async def verify_face(
         )
         await db.commit()
 
-        return {"message": "Face verified successfully", "face_verified": True}
+        return {"message": "Face registered successfully", "face_verified": True}
 
     except HTTPException as http_exc:
+        logger.error(f"HTTPException: {http_exc.detail}")
         raise http_exc
 
     except Exception as e:
-        logger.error(f"Error during face verification: {e}")
+        logger.error(f"Unexpected error during face registration: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")

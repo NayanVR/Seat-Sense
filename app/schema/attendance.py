@@ -5,10 +5,8 @@ from pydantic import BaseModel
 
 
 class MarkAttendanceRequest(BaseModel):
-    user_id: str
+    email: str
     event_id: str
-    latitude: float
-    longitude: float
 
 class MarkAttendanceResponse(BaseModel):
     message: str
@@ -18,10 +16,11 @@ class AttendanceByEventRequest(BaseModel):
     event_id: str
 
 class AttendanceByEventResponse(BaseModel):
+    attendance_id: str
     user_id: str
-    event_id: str
-    latitude: Optional[float]
-    longitude: Optional[float]
+    first_name: str
+    last_name: str
+    email: str
     time: datetime
 
 

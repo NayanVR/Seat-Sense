@@ -19,9 +19,6 @@ class ResetPasswordResponse(BaseModel):
     message: str
 
 
-class ProfileRequest(BaseModel):
-    token: str
-
 class ProfileResponse(BaseModel):
     user_id: str
     first_name: str
@@ -41,6 +38,7 @@ class LoginResponse(BaseModel):
 
 
 class SignupRequest(BaseModel):
+    otp: int
     first_name: str
     last_name: str
     email: str
@@ -55,3 +53,11 @@ class SignupResponse(BaseModel):
 class RegisterFaceResponse(BaseModel):
     message: str
     face_verified: bool
+
+
+class SendOTPRequest(BaseModel):
+    email: str
+
+class VerifyOTPRequest(BaseModel):
+    email: str
+    otp: int

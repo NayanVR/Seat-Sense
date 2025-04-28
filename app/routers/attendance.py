@@ -1,5 +1,4 @@
 import io
-import pdb
 from typing import Annotated, List, Tuple
 
 import face_recognition
@@ -8,6 +7,7 @@ from fastapi.logger import logger
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core.location_manager import verify_inside_audi_within_radius
 from app.core.token_manager import UserTokenModel, get_user_from_header
 from app.db import get_db
@@ -38,23 +38,29 @@ async def mark_attendance(
             raise HTTPException(status_code=404, detail="Event not found")
 
         # Check if the user exists
-        user_record = await db.execute(select(User).filter(User.user_id == req.user_id))
+        user_record = await db.execute(select(User).filter(User.email == req.email.lower()))
         user_record = user_record.scalar_one_or_none()
         if not user_record:
             raise HTTPException(status_code=404, detail="User not found")
 
         # Mark attendance
         attendance = Attendance(
-            user_id=req.user_id,
+            user_id=user_record.user_id,
             event_id=req.event_id,
-            latitude=req.latitude,
-            longitude=req.longitude
+            latitude=settings.audi_latitude,
+            longitude=settings.audi_longitude
         )
         db.add(attendance)
         await db.commit()
         return {"message": "Attendance marked successfully"}
+
+    except HTTPException as http_exc:
+        logger.error(f"HTTPException: {http_exc.detail}")
+        raise http_exc
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error marking attendance: {e}")
+        raise HTTPException(status_code=500)
 
 @router.post("/mark-from-image", response_model=MarkAttendanceResponse)
 async def mark_attendance_from_image(
@@ -72,8 +78,8 @@ async def mark_attendance_from_image(
     # Process image and detect faces in one section
     try:
         # TODO: Uncomment this line to verify if the user is within the required radius
-        # if not verify_inside_audi_within_radius(latitude, longitude):
-        #     raise HTTPException(status_code=403, detail="User is not within the required radius")
+        if not verify_inside_audi_within_radius(latitude, longitude):
+            raise HTTPException(status_code=403, detail="User is not within the required radius")
 
         image_data = face_recognition.load_image_file(io.BytesIO(image_file))
         face_encodings = face_recognition.face_encodings(image_data)
@@ -116,9 +122,14 @@ async def mark_attendance_from_image(
         db.add(attendance)
         await db.commit()
         return {"message": "Attendance marked successfully from image"}
+
+    except HTTPException as http_exc:
+        logger.error(f"HTTPException: {http_exc.detail}")
+        raise http_exc
+
     except Exception as e:
         logger.error(f"Error marking attendance from image: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500)
 
 @router.post("/by-event", response_model=List[AttendanceByEventResponse])
 async def get_attendance_by_event(
@@ -137,16 +148,23 @@ async def get_attendance_by_event(
             raise HTTPException(status_code=404, detail="No attendance records found for this event")
 
         return [
-            {
-                "attendance_id": attendance.attendance_id,
-                "user_id": user.user_id,
-                "event_id": attendance.event_id,
-                "latitude": attendance.latitude,
-                "longitude": attendance.longitude
-            } for attendance, user in attendance_records
+            AttendanceByEventResponse(
+                attendance_id=str(attendance.attendance_id),
+                user_id=str(user.user_id),
+                first_name=user.first_name,
+                last_name=user.last_name,
+                email=user.email,
+                time=attendance.time,
+            ) for attendance, user in attendance_records
         ]
+
+    except HTTPException as http_exc:
+        logger.error(f"HTTPException: {http_exc.detail}")
+        raise http_exc
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error retrieving attendance by event: {e}")
+        raise HTTPException(status_code=500)
 
 @router.post("/delete", response_model=DeleteAttendanceResponse)
 async def delete_attendance(
@@ -164,5 +182,11 @@ async def delete_attendance(
 
         await db.commit()
         return {"message": "Attendance record deleted successfully"}
+
+    except HTTPException as http_exc:
+        logger.error(f"HTTPException: {http_exc.detail}")
+        raise http_exc
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error deleting attendance record: {e}")
+        raise HTTPException(status_code=500)

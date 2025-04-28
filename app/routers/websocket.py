@@ -27,7 +27,7 @@ async def websocket_endpoint(socket: WebSocket, token: Annotated[str, Depends(ge
 
     try:
         occupancy = await get_occupancy()
-        manager.send_personal_message(occupancy, socket)
+        await manager.send_personal_message(occupancy, socket)
         while True:
             data = await socket.receive_text()
             await manager.broadcast(f"Client #{user.email} says: {data}")

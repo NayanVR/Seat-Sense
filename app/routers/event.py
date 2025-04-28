@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.logger import logger
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -44,8 +45,14 @@ async def create_event(
             created_at=new_event.created_at.isoformat(),
             updated_at=new_event.updated_at.isoformat(),
         )
+
+    except HTTPException as http_exc:
+        logger.error(f"HTTPException: {http_exc.detail}")
+        raise http_exc
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Exception: {str(e)}")
+        raise HTTPException(status_code=500)
 
 @router.post("/get", response_model=EventResponse)
 async def get_event(
@@ -68,8 +75,14 @@ async def get_event(
             created_at=event.created_at.isoformat(),
             updated_at=event.updated_at.isoformat(),
         )
+
+    except HTTPException as http_exc:
+        logger.error(f"HTTPException: {http_exc.detail}")
+        raise http_exc
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Exception: {str(e)}")
+        raise HTTPException(status_code=500)
 
 @router.post("/list", response_model=EventListResponse)
 async def list_events(
@@ -95,8 +108,14 @@ async def list_events(
                 ) for event in events
             ]
         )
+
+    except HTTPException as http_exc:
+        logger.error(f"HTTPException: {http_exc.detail}")
+        raise http_exc
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Exception: {str(e)}")
+        raise HTTPException(status_code=500)
 
 @router.post("/update", response_model=EventResponse)
 async def update_event(
@@ -133,8 +152,14 @@ async def update_event(
             created_at=event.created_at.isoformat(),
             updated_at=event.updated_at.isoformat(),
         )
+
+    except HTTPException as http_exc:
+        logger.error(f"HTTPException: {http_exc.detail}")
+        raise http_exc
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Exception: {str(e)}")
+        raise HTTPException(status_code=500)
 
 @router.post("/delete")
 async def delete_event(
@@ -153,5 +178,11 @@ async def delete_event(
         await db.execute(delete(Event).where(Event.event_id == req.event_id))
         await db.commit()
         return {"message": "Event deleted successfully"}
+
+    except HTTPException as http_exc:
+        logger.error(f"HTTPException: {http_exc.detail}")
+        raise http_exc
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Exception: {str(e)}")
+        raise HTTPException(status_code=500)

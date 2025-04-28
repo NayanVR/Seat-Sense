@@ -16,14 +16,30 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 async def get_occupancy():
     global occupancy_data
-    return occupancy_data
+    return str(occupancy_data)
 
 async def compute_occupancy_periodically():
     global occupancy_data
     while True:
-        occupancy_data = compute_occupancy(os.path.join(BASE_DIR, f"static/{np.random.randint(1, 7)}.png"))
+        occupancy = compute_occupancy(os.path.join(BASE_DIR, f"static/{np.random.randint(1, 7)}.png"))
+
+        # Group and sort the occupancy data by row and seat number in one step
+        grouped_sorted_occupancy_data = {}
+        for seat, status in occupancy.items():
+            row = seat[0]  # Extract the row label (e.g., 'A', 'B', etc.)
+            seat_number = seat[1:]  # Extract the seat number as a string
+            if row not in grouped_sorted_occupancy_data:
+                grouped_sorted_occupancy_data[row] = {}
+            grouped_sorted_occupancy_data[row][seat_number] = status
+
+        # Sort rows alphabetically and seat numbers numerically
+        occupancy_data = {
+            row: dict(sorted(seats.items(), key=lambda x: int(x[0])))  # Sort seat numbers numerically
+            for row, seats in sorted(grouped_sorted_occupancy_data.items())  # Sort rows alphabetically
+        }
+
         await manager.broadcast(str(occupancy_data))
-        await asyncio.sleep(3)
+        await asyncio.sleep(2)
 
 def compute_occupancy(filled_image_path: np.ndarray, empty_image_path: np.ndarray = None) -> dict[str, bool]:
     try:

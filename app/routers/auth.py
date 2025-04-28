@@ -1,22 +1,25 @@
 import io
+import random
+import sqlite3
 
 import bcrypt
 import face_recognition
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.logger import logger
+from fastapi_mail import FastMail, MessageSchema, MessageType
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.token_manager import (UserTokenModel, create_access_token,
                                     decode_access_token, get_user_from_header)
-from app.db import get_db
-from app.models import FaceEmbedding, User
+from app.db import get_db, get_otp_db
+from app.models import FaceEmbedding, Role, User
 from app.schema.auth import (ForgotPasswordRequest, ForgotPasswordResponse,
-                             LoginRequest, LoginResponse, ProfileRequest,
-                             ProfileResponse, RegisterFaceResponse,
-                             ResetPasswordRequest, ResetPasswordResponse,
-                             SignupRequest, SignupResponse)
+                             LoginRequest, LoginResponse, ProfileResponse,
+                             RegisterFaceResponse, ResetPasswordRequest,
+                             ResetPasswordResponse, SendOTPRequest,
+                             SignupRequest, SignupResponse, VerifyOTPRequest)
 
 router = APIRouter()
 
@@ -53,30 +56,41 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=500)
 
 @router.post("/signup", response_model=SignupResponse)
-async def signup(req: SignupRequest, db: AsyncSession = Depends(get_db)):
+async def signup(req: SignupRequest, db: AsyncSession = Depends(get_db), otp_db: sqlite3.Connection = Depends(get_otp_db)):
     try:
-        result = await db.execute(select(User).filter(User.email == req.email))
-        user = result.scalar_one_or_none()
+        # Verify OTP
+        cur = otp_db.cursor()
+        result = cur.execute("SELECT otp FROM otps WHERE email = ?", (req.email.lower(),)).fetchone()
 
-        if user:
+        print(f"User OTP: {req.otp} - DB OTP: {result[0] if result[0] else result}")
+
+        if not result or result[0] != req.otp:
+            raise HTTPException(status_code=400, detail="Invalid OTP")
+
+        # Check if the user already exists
+        existing_user = await db.execute(select(User).filter(User.email == req.email))
+        if existing_user.scalar_one_or_none():
             raise HTTPException(status_code=400, detail="User already exists")
 
+        # Hash the password and create the user
         hashed_password = bcrypt.hashpw(req.password.encode('utf-8'), bcrypt.gensalt())
-
         new_user = User(
             first_name=req.first_name,
             last_name=req.last_name,
             email=req.email.lower(),
             password=hashed_password.decode('utf-8'),
-            role=req.role,
-            face_verified=False
+            role=Role.STUDENT.value,
+            face_verified=False,
         )
-
         db.add(new_user)
         await db.commit()
         await db.refresh(new_user)
 
-        # Include role and other user details in the access token
+        cur.execute("DELETE FROM otps WHERE LOWER(email) = LOWER(?)", (req.email.lower(),))
+        otp_db.commit()
+        cur.close()
+
+        # Generate access token
         access_token = create_access_token(
             data=UserTokenModel(
                 email=new_user.email,
@@ -91,11 +105,12 @@ async def signup(req: SignupRequest, db: AsyncSession = Depends(get_db)):
         return {"access_token": access_token, "token_type": "bearer"}
 
     except HTTPException as http_exc:
+        logger.error(f"HTTPException: {http_exc.detail}")
         raise http_exc
 
     except Exception as e:
         logger.error(f"Error during signup: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500)
 
 @router.post("/profile", response_model=ProfileResponse)
 async def profile(db: AsyncSession = Depends(get_db), user: User = Depends(get_user_from_header)):
@@ -121,7 +136,65 @@ async def profile(db: AsyncSession = Depends(get_db), user: User = Depends(get_u
 
     except Exception as e:
         logger.error(f"Error during profile: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500)
+
+@router.post("/send-otp", response_model=dict)
+async def send_otp(req: SendOTPRequest, background_tasks: BackgroundTasks, otp_db: sqlite3.Connection = Depends(get_otp_db)):
+    try:
+        otp = random.randint(100000, 999999)
+
+        cur = otp_db.cursor()
+        result = cur.execute("SELECT otp FROM otps WHERE LOWER(email) = LOWER(?)", (req.email.lower(),)).fetchone()
+
+        if result:
+            cur.execute("UPDATE otps SET otp = ? WHERE LOWER(email) = LOWER(?)", (otp, req.email.lower()))
+        else:
+            cur.execute("INSERT INTO otps (email, otp) VALUES (?, ?)", (req.email.lower(), otp))
+
+        otp_db.commit()
+
+        result = cur.execute("SELECT otp FROM otps WHERE LOWER(email) = LOWER(?)", (req.email.lower(),)).fetchone()
+        print(f"OTP for {req.email}: {result[0]}")
+        cur.close()
+
+        message = MessageSchema(
+            subject="Your Email Verification Code",
+            recipients=[req.email],
+            template_body={"otp": otp},
+            subtype=MessageType.html,
+        )
+        fm = FastMail(settings.mail_config)
+        background_tasks.add_task(fm.send_message,message,template_name="verification_otp.html")
+        # await fm.send_message(message, template_name="verification_otp.html")
+
+        return {"message": "OTP sent to your email"}
+
+    except HTTPException as http_exc:
+        logger.error(f"HTTPException: {http_exc.detail}")
+        raise http_exc
+
+    except Exception as e:
+        logger.error(f"Error during send-otp: {e}")
+        raise HTTPException(status_code=500)
+
+@router.post("/verify-otp", response_model=dict)
+async def verify_otp(req: VerifyOTPRequest, otp_db: sqlite3.Connection = Depends(get_otp_db)):
+    try:
+        cur = otp_db.cursor()
+        result = cur.execute("SELECT otp FROM otps WHERE LOWER(email) = LOWER(?)", (req.email.lower(),)).fetchone()
+
+        if not result or result[0] != req.otp:
+            raise HTTPException(status_code=400, detail="Invalid OTP")
+
+        return {"message": "OTP verified successfully"}
+
+    except HTTPException as http_exc:
+        logger.error(f"HTTPException: {http_exc.detail}")
+        raise http_exc
+
+    except Exception as e:
+        logger.error(f"Error during verify-otp: {e}")
+        raise HTTPException(status_code=500)
 
 @router.post("/forgot-password", response_model=ForgotPasswordResponse)
 async def forgot_password(req: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):

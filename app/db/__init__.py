@@ -1,6 +1,8 @@
-# from sqlalchemy import create_engine
+import sqlite3
+
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
+
 from app.config import settings
 
 # Create an async engine
@@ -14,7 +16,21 @@ SessionLocal = sessionmaker(
     autoflush=False
 )
 
-# Dependency to get the database session
 async def get_db():
     async with SessionLocal() as session:
         yield session
+
+otp_db = sqlite3.connect(":memory:")  # In-memory SQLite database
+otp_db.row_factory = sqlite3.Row  # Optional: Access rows as dictionaries
+cur = otp_db.cursor()
+cur.execute("""
+CREATE TABLE IF NOT EXISTS otps (
+    email TEXT PRIMARY KEY,
+    otp INTEGER
+)
+""")
+otp_db.commit()
+cur.close()
+
+def get_otp_db() -> sqlite3.Connection:
+    return otp_db

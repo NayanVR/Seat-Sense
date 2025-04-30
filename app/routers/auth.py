@@ -6,7 +6,6 @@ import bcrypt
 import face_recognition
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.logger import logger
-from fastapi_mail import FastMail, MessageSchema, MessageType
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +19,7 @@ from app.schema.auth import (ForgotPasswordRequest, ForgotPasswordResponse,
                              RegisterFaceResponse, ResetPasswordRequest,
                              ResetPasswordResponse, SendOTPRequest,
                              SignupRequest, SignupResponse, VerifyOTPRequest)
+from app.services.resend_mail import send_otp_verification_email
 
 router = APIRouter()
 
@@ -157,15 +157,7 @@ async def send_otp(req: SendOTPRequest, background_tasks: BackgroundTasks, otp_d
         print(f"OTP for {req.email}: {result[0]}")
         cur.close()
 
-        message = MessageSchema(
-            subject="Your Email Verification Code",
-            recipients=[req.email],
-            template_body={"otp": otp},
-            subtype=MessageType.html,
-        )
-        fm = FastMail(settings.mail_config)
-        background_tasks.add_task(fm.send_message,message,template_name="verification_otp.html")
-        # await fm.send_message(message, template_name="verification_otp.html")
+        background_tasks.add_task(send_otp_verification_email, req.email, str(otp))
 
         return {"message": "OTP sent to your email"}
 

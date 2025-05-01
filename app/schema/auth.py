@@ -10,9 +10,9 @@ class ForgotPasswordRequest(BaseModel):
 class ForgotPasswordResponse(BaseModel):
     password_reset_token: str
 
-
 class ResetPasswordRequest(BaseModel):
-    token: str
+    email: str
+    otp: str
     password: str
 
 class ResetPasswordResponse(BaseModel):

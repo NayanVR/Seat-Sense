@@ -18,11 +18,56 @@ async def get_occupancy():
     global occupancy_data
     return str(occupancy_data)
 
+VIDEO_PATH = os.path.join(BASE_DIR, 'static/video.mp4')
+
+async def process_video_on_loop():
+    global occupancy_data
+
+    while True:
+        cap = cv2.VideoCapture(VIDEO_PATH)
+        
+        if not cap.isOpened():
+            logger.error(f"Failed to open video file at {VIDEO_PATH}")
+            await asyncio.sleep(2)
+            continue
+
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break  # End of video reached; restart loop
+
+            # Convert frame to grayscale and save temporarily for processing
+            temp_frame_path = os.path.join(BASE_DIR, 'static/temp_frame.png')
+            # gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            cv2.imwrite(temp_frame_path, frame)
+
+            # Run your existing occupancy detection logic
+            occupancy = compute_occupancy(temp_frame_path)
+
+            # Group and sort occupancy data
+            grouped_sorted_occupancy_data = {}
+            for seat, status in occupancy.items():
+                row = seat[0]
+                seat_number = seat[1:]
+                if row not in grouped_sorted_occupancy_data:
+                    grouped_sorted_occupancy_data[row] = {}
+                grouped_sorted_occupancy_data[row][seat_number] = status
+
+            occupancy_data = {
+                row: dict(sorted(seats.items(), key=lambda x: int(x[0])))
+                for row, seats in sorted(grouped_sorted_occupancy_data.items())
+            }
+
+            await manager.broadcast(str(occupancy_data))
+            await asyncio.sleep(2)
+
+        cap.release()
+        await asyncio.sleep(1)  # Wait before restarting the video
+
 async def compute_occupancy_periodically():
     global occupancy_data
     while True:
         occupancy = compute_occupancy(os.path.join(BASE_DIR, f"static/{np.random.randint(1, 7)}.png"))
-
         # Group and sort the occupancy data by row and seat number in one step
         grouped_sorted_occupancy_data = {}
         for seat, status in occupancy.items():

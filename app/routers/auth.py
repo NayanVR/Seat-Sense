@@ -4,7 +4,7 @@ import sqlite3
 
 import bcrypt
 import face_recognition
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, File, UploadFile
 from fastapi.logger import logger
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -209,23 +209,33 @@ async def forgot_password(req: ForgotPasswordRequest, db: AsyncSession = Depends
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.post("/reset-password", response_model=ResetPasswordResponse)
-async def reset_password(req: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+async def reset_password(req: ResetPasswordRequest, db: AsyncSession = Depends(get_db), otp_db: sqlite3.Connection = Depends(get_otp_db)):
     try:
-        decoded_user = await decode_access_token(req.token)
+        # Verify OTP
+        cur = otp_db.cursor()
+        result = cur.execute("SELECT otp FROM otps WHERE LOWER(email) = LOWER(?)", (req.email.lower(),)).fetchone()
 
-        if decoded_user is None:
-            raise HTTPException(status_code=401, detail="Token is invalid")
+        if not result or result[0] != req.otp:
+            raise HTTPException(status_code=400, detail="Invalid OTP")
 
-        fetched_user = await db.execute(select(User).filter(User.email == decoded_user.email))
+        # Fetch the user
+        fetched_user = await db.execute(select(User).filter(User.email == req.email.lower()))
         user = fetched_user.scalar_one_or_none()
 
         if user is None:
             raise HTTPException(status_code=404, detail="User not found")
 
+        # Hash the new password
         hashed_password = bcrypt.hashpw(req.password.encode('utf-8'), bcrypt.gensalt())
 
+        # Update the user's password
         await db.execute(update(User).where(User.email == user.email).values(password=hashed_password.decode('utf-8')))
         await db.commit()
+
+        # Remove the OTP after successful password reset
+        cur.execute("DELETE FROM otps WHERE LOWER(email) = LOWER(?)", (req.email.lower(),))
+        otp_db.commit()
+        cur.close()
 
         return {"message": "Password reset successful"}
 
@@ -235,9 +245,6 @@ async def reset_password(req: ResetPasswordRequest, db: AsyncSession = Depends(g
     except Exception as e:
         logger.error(f"Error during reset-password: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
-
-from fastapi import File, UploadFile
-
 
 @router.post("/register-face", response_model=RegisterFaceResponse)
 async def register_face(

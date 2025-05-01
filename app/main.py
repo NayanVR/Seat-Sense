@@ -9,12 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
 from app.routers import attendance, auth, event, websocket
-from app.services.occupancy_detection import compute_occupancy_periodically
+from app.services.occupancy_detection import compute_occupancy_periodically, process_video_on_loop
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    occupancy_task = asyncio.create_task(compute_occupancy_periodically())
+    occupancy_task = asyncio.create_task(process_video_on_loop())
     yield
     occupancy_task.cancel()
 

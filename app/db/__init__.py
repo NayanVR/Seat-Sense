@@ -1,3 +1,4 @@
+import os
 import sqlite3
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -20,7 +21,9 @@ async def get_db():
     async with SessionLocal() as session:
         yield session
 
-otp_db = sqlite3.connect(":memory:")  # In-memory SQLite database
+db_file_path = os.path.join(os.path.dirname(__file__), "otp_database.sqlite")
+
+otp_db = sqlite3.connect(db_file_path)  # Connect to the SQLite database file
 otp_db.row_factory = sqlite3.Row  # Optional: Access rows as dictionaries
 cur = otp_db.cursor()
 cur.execute("""

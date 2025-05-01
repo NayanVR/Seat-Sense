@@ -4,7 +4,8 @@ import sqlite3
 
 import bcrypt
 import face_recognition
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, File, UploadFile
+from fastapi import (APIRouter, BackgroundTasks, Depends, File, HTTPException,
+                     UploadFile)
 from fastapi.logger import logger
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -62,11 +63,12 @@ async def signup(req: SignupRequest, db: AsyncSession = Depends(get_db), otp_db:
         cur = otp_db.cursor()
         result = cur.execute("SELECT otp FROM otps WHERE email = ?", (req.email.lower(),)).fetchone()
 
-        print(f"User OTP: {req.otp} - DB OTP: {result[0] if result[0] else result}")
+        fetched_otp = result[0] if result else None
 
-        if not result or result[0] != req.otp:
+        print(f"User OTP: {req.otp} - DB OTP: {fetched_otp}")
+
+        if fetched_otp is None or str(fetched_otp) != str(req.otp):
             raise HTTPException(status_code=400, detail="Invalid OTP")
-
         # Check if the user already exists
         existing_user = await db.execute(select(User).filter(User.email == req.email))
         if existing_user.scalar_one_or_none():
@@ -157,7 +159,9 @@ async def send_otp(req: SendOTPRequest, background_tasks: BackgroundTasks, otp_d
         print(f"OTP for {req.email}: {result[0]}")
         cur.close()
 
-        background_tasks.add_task(send_otp_verification_email, req.email, str(otp))
+        print(f"Sending OTP: {otp} to {req.email}")
+
+        # background_tasks.add_task(send_otp_verification_email, req.email, str(otp))
 
         return {"message": "OTP sent to your email"}
 
@@ -174,6 +178,8 @@ async def verify_otp(req: VerifyOTPRequest, otp_db: sqlite3.Connection = Depends
     try:
         cur = otp_db.cursor()
         result = cur.execute("SELECT otp FROM otps WHERE LOWER(email) = LOWER(?)", (req.email.lower(),)).fetchone()
+
+        print(f"User OTP: {req.otp} - DB OTP: {result[0] if result[0] else result}")
 
         if not result or result[0] != req.otp:
             raise HTTPException(status_code=400, detail="Invalid OTP")
@@ -213,9 +219,13 @@ async def reset_password(req: ResetPasswordRequest, db: AsyncSession = Depends(g
     try:
         # Verify OTP
         cur = otp_db.cursor()
-        result = cur.execute("SELECT otp FROM otps WHERE LOWER(email) = LOWER(?)", (req.email.lower(),)).fetchone()
+        result = cur.execute("SELECT otp FROM otps WHERE email = ?", (req.email.lower(),)).fetchone()
 
-        if not result or result[0] != req.otp:
+        fetched_otp = result[0] if result else None
+
+        print(f"User OTP: {req.otp} - DB OTP: {fetched_otp}")
+
+        if fetched_otp is None or str(fetched_otp) != str(req.otp):
             raise HTTPException(status_code=400, detail="Invalid OTP")
 
         # Fetch the user

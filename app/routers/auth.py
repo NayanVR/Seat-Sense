@@ -161,7 +161,7 @@ async def send_otp(req: SendOTPRequest, background_tasks: BackgroundTasks, otp_d
 
         print(f"Sending OTP: {otp} to {req.email}")
 
-        # background_tasks.add_task(send_otp_verification_email, req.email, str(otp))
+        background_tasks.add_task(send_otp_verification_email, req.email, str(otp))
 
         return {"message": "OTP sent to your email"}
 
